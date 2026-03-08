@@ -4,6 +4,7 @@ let currentHoSoId = null;
 let donViList = [];
 let danhHieuList = [];
 let hinhThucList = [];
+let hoSoModal = null; // Single modal instance to prevent duplicates
 
 // Check authentication
 if (!checkAuth()) {
@@ -15,6 +16,22 @@ document.addEventListener('DOMContentLoaded', async () => {
     await loadFilters();
     await loadHoSo();
     setupFilterHandlers();
+    
+    // Initialize modal once to prevent multiple instances
+    const modalElement = document.getElementById('hoSoModal');
+    if (modalElement) {
+        hoSoModal = new bootstrap.Modal(modalElement);
+        
+        // Clean up when modal is hidden
+        modalElement.addEventListener('hidden.bs.modal', () => {
+            // Remove any leftover backdrops
+            document.querySelectorAll('.modal-backdrop').forEach(el => el.remove());
+            // Reset body styles
+            document.body.classList.remove('modal-open');
+            document.body.style.removeProperty('padding-right');
+            document.body.style.removeProperty('overflow');
+        });
+    }
     
     // Check for URL parameters to pre-fill form
     checkUrlParameters();
@@ -187,9 +204,13 @@ function openCreateModal(prefilledData = {}) {
     document.getElementById('hoSoId').value = '';
     document.getElementById('namKhenThuong').value = new Date().getFullYear();
     
-    // Hide upload section for new records
+    // Hide upload section for new records (will be shown after first save)
     document.getElementById('uploadSection').style.display = 'none';
     document.getElementById('fileList').innerHTML = '';
+    
+    // Show upload notice, hide "Save and Close" button
+    document.getElementById('uploadNotice').style.display = 'block';
+    document.getElementById('btnSaveAndClose').style.display = 'none';
     
     // Pre-fill with provided data
     if (prefilledData.don_vi_id) {
@@ -201,8 +222,10 @@ function openCreateModal(prefilledData = {}) {
     
     toggleLoaiHoSo();
     
-    const modal = new bootstrap.Modal(document.getElementById('hoSoModal'));
-    modal.show();
+    // Use existing modal instance
+    if (hoSoModal) {
+        hoSoModal.show();
+    }
 }
 
 // Edit ho so
@@ -229,10 +252,14 @@ async function editHoSo(id) {
         
         // Show upload section and load files
         document.getElementById('uploadSection').style.display = 'block';
+        document.getElementById('uploadNotice').style.display = 'none';
+        document.getElementById('btnSaveAndClose').style.display = 'inline-block';
         loadFiles(id, hoSo.file_dinh_kem);
         
-        const modal = new bootstrap.Modal(document.getElementById('hoSoModal'));
-        modal.show();
+        // Use existing modal instance
+        if (hoSoModal) {
+            hoSoModal.show();
+        }
     } catch (error) {
         showError('Lỗi khi tải thông tin hồ sơ');
     }
@@ -240,6 +267,64 @@ async function editHoSo(id) {
 
 // Save ho so
 async function saveHoSo() {
+    try {
+        const form = document.getElementById('hoSoForm');
+        if (!form.checkValidity()) {
+            form.reportValidity();
+            return;
+        }
+        
+        const data = {
+            loai_ho_so: document.getElementById('loaiHoSo').value,
+            ho_ten: document.getElementById('hoTen').value || null,
+            cap_bac: document.getElementById('capBac').value || null,
+            chuc_vu: document.getElementById('chucVu').value || null,
+            ten_tap_the: document.getElementById('tenTapThe').value || null,
+            don_vi_id: parseInt(document.getElementById('donViId').value),
+            danh_hieu_id: document.getElementById('danhHieuId').value ? parseInt(document.getElementById('danhHieuId').value) : null,
+            hinh_thuc_id: document.getElementById('hinhThucId').value ? parseInt(document.getElementById('hinhThucId').value) : null,
+            nam_khen_thuong: parseInt(document.getElementById('namKhenThuong').value),
+            thanh_tich: document.getElementById('thanhTich').value,
+            ghi_chu: document.getElementById('ghiChu').value || null
+        };
+        
+        if (currentHoSoId) {
+            // Update existing record
+            await apiCall(`/ho-so/${currentHoSoId}`, {
+                method: 'PUT',
+                data
+            });
+            showSuccess('Cập nhật hồ sơ thành công');
+        } else {
+            // Create new record
+            const newHoSo = await apiCall('/ho-so/', {
+                method: 'POST',
+                data
+            });
+            currentHoSoId = newHoSo.id;
+            showSuccess('Tạo hồ sơ thành công! Bạn có thể thêm file minh chứng.');
+            
+            // Show upload section after successful creation
+            document.getElementById('uploadSection').style.display = 'block';
+            document.getElementById('uploadNotice').style.display = 'none';
+            document.getElementById('btnSaveAndClose').style.display = 'inline-block';
+            document.getElementById('hoSoModalTitle').textContent = 'Thêm file minh chứng';
+            document.getElementById('hoSoId').value = currentHoSoId;
+            loadFiles(currentHoSoId, null);
+            
+            // Don't close modal - let user upload files
+            await loadHoSo();
+            return;
+        }
+        
+        await loadHoSo();
+    } catch (error) {
+        showError(error.response?.data?.detail || 'Lỗi khi lưu hồ sơ');
+    }
+}
+
+// Save and close modal
+async function saveAndCloseHoSo() {
     try {
         const form = document.getElementById('hoSoForm');
         if (!form.checkValidity()) {
@@ -275,7 +360,10 @@ async function saveHoSo() {
             showSuccess('Tạo hồ sơ thành công');
         }
         
-        bootstrap.Modal.getInstance(document.getElementById('hoSoModal')).hide();
+        // Close modal
+        if (hoSoModal) {
+            hoSoModal.hide();
+        }
         await loadHoSo();
     } catch (error) {
         showError(error.response?.data?.detail || 'Lỗi khi lưu hồ sơ');

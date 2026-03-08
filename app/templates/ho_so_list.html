@@ -171,7 +171,7 @@
                     <!-- Upload ảnh minh chứng -->
                     <div class="mb-3" id="uploadSection" style="display: none;">
                         <label class="form-label">
-                            <i class="bi bi-image me-2"></i>Ảnh minh chứng
+                            <i class="bi bi-paperclip me-2"></i>File minh chứng
                         </label>
                         <div class="border rounded p-3 bg-light">
                             <input type="file" class="form-control mb-2" id="fileUpload" 
@@ -186,11 +186,22 @@
                             </div>
                         </div>
                     </div>
+                    
+                    <!-- Thông báo upload file - hiển thị khi tạo mới -->
+                    <div class="alert alert-info" id="uploadNotice">
+                        <i class="bi bi-info-circle me-2"></i>
+                        <small>Sau khi lưu hồ sơ, bạn có thể thêm ảnh/file minh chứng (PDF, JPG, PNG, DOC).</small>
+                    </div>
                 </form>
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Đóng</button>
-                <button type="button" class="btn btn-primary" onclick="saveHoSo()">Lưu</button>
+                <button type="button" class="btn btn-success" id="btnSaveAndClose" onclick="saveAndCloseHoSo()" style="display: none;">
+                    <i class="bi bi-check-circle me-1"></i>Lưu và đóng
+                </button>
+                <button type="button" class="btn btn-primary" onclick="saveHoSo()">
+                    <i class="bi bi-save me-1"></i>Lưu
+                </button>
             </div>
         </div>
     </div>
